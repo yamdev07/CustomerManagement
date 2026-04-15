@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,6 +10,9 @@ class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
+
+    public const ROLE_ADMIN = 'admin';
+    public const ROLE_COMMERCIAL = 'commercial';
 
     /**
      * The attributes that are mass assignable.
@@ -21,6 +23,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'email_verified_at',
+        'remember_token',
     ];
 
     /**
@@ -44,5 +49,38 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /* ──────────────────────────────────────────────
+       Role helpers
+    ────────────────────────────────────────────── */
+
+    public function isAdmin(): bool
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isCommercial(): bool
+    {
+        return $this->role === self::ROLE_COMMERCIAL;
+    }
+
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    /* ──────────────────────────────────────────────
+       Scopes
+    ────────────────────────────────────────────── */
+
+    public function scopeAdmins(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('role', self::ROLE_ADMIN);
+    }
+
+    public function scopeCommerciaux(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where('role', self::ROLE_COMMERCIAL);
     }
 }

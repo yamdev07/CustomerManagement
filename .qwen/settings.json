@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(composer *)",
+      "Bash(del *)",
+      "Bash(findstr *)",
+      "Bash(php *)",
+      "Bash(ren *)"
+    ]
+  },
+  "$version": 3
+}

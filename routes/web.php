@@ -1,66 +1,80 @@
 <?php
 
-use App\Http\Controllers\ClientController;
+use App\Http\Controllers\Client\ClientCrudController;
+use App\Http\Controllers\Client\ClientExportController;
+use App\Http\Controllers\Client\ClientFilteredListsController;
+use App\Http\Controllers\Client\ClientListController;
+use App\Http\Controllers\Client\ClientNotificationController;
+use App\Http\Controllers\Client\ClientPaymentController;
+use App\Http\Controllers\Client\ClientStatusController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
-// Page d'accueil publique
-Route::get('/', fn() => view('welcome'));
+// ── Page d'accueil publique ──
+Route::get('/', fn () => view('welcome'));
 
-// Routes protégées par auth
+// ── Routes protégées par auth ──
 Route::middleware(['auth'])->group(function () {
 
-    // Dashboard redirection
-    Route::get('/dashboard', fn() => redirect()->route('clients.index'))->name('dashboard');
+    // Dashboard → redirection vers liste clients
+    Route::get('/dashboard', fn () => redirect()->route('clients.index'))->name('dashboard');
 
-    // Routes clients
-    Route::prefix('clients')->name('clients.')->group(function () {
+    // ──────────────────────────────────────────────
+    //  Clients — Commercial & Admin (lecture + ajout)
+    // ──────────────────────────────────────────────
+    Route::middleware(['role:commercial,admin'])->group(function () {
+        Route::get('/clients', ClientListController::class)->name('clients.index');
+        Route::get('/clients/create', [ClientCrudController::class, 'create'])->name('clients.create');
+        Route::post('/clients', [ClientCrudController::class, 'store'])->name('clients.store');
+        Route::get('/clients/{client}', [ClientCrudController::class, 'show'])->name('clients.show');
 
-        // --- COMMERCIAL & ADMIN : lecture + ajouter ---
-        Route::middleware(['role:commercial,admin'])->group(function () {
-            Route::get('/', [ClientController::class, 'index'])->name('index');
-            Route::get('/create', [ClientController::class, 'create'])->name('create');
-            Route::post('/', [ClientController::class, 'store'])->name('store');
-
-            Route::get('/payes', [ClientController::class, 'clientsPayes'])->name('payes');
-            Route::get('/nonpayes', [ClientController::class, 'nonPayes'])->name('nonpayes');
-            Route::get('/actifs', [ClientController::class, 'clientsActifs'])->name('actifs');
-            Route::get('/suspendus', [ClientController::class, 'clientsSuspendus'])->name('suspendus');
-            Route::get('/reabonnement', [ClientController::class, 'aReabonnement'])->name('reabonnement');
-            Route::get('/depasses', [ClientController::class, 'depasses'])->name('depasses');
-            Route::get('/dans3jours', [ClientController::class, 'dans3Jours'])->name('dans3jours');
+        // Listes filtrées
+        Route::prefix('clients')->name('clients.')->group(function () {
+            Route::get('/payes', [ClientFilteredListsController::class, 'payes'])->name('payes');
+            Route::get('/nonpayes', [ClientFilteredListsController::class, 'nonPayes'])->name('nonpayes');
+            Route::get('/actifs', [ClientFilteredListsController::class, 'actifs'])->name('actifs');
+            Route::get('/suspendus', [ClientFilteredListsController::class, 'suspendus'])->name('suspendus');
+            Route::get('/reabonnement', [ClientFilteredListsController::class, 'aReabonnement'])->name('reabonnement');
+            Route::get('/depasses', [ClientFilteredListsController::class, 'depasses'])->name('depasses');
         });
-
-        // --- ADMIN : toutes les actions CRUD et spéciales ---
-        Route::middleware(['role:admin'])->group(function () {
-            Route::get('/{client}/edit', [ClientController::class, 'edit'])->name('edit');
-            Route::put('/{client}', [ClientController::class, 'update'])->name('update');
-            Route::delete('/{client}', [ClientController::class, 'destroy'])->name('destroy');
-
-            Route::patch('/{client}/reconnecter', [ClientController::class, 'reconnecter'])->name('reconnecter');
-            Route::patch('/{client}/suspendre', [ClientController::class, 'suspendre'])->name('suspendre');
-            Route::post('/{client}/deconnecter', [ClientController::class, 'deconnecter'])->name('deconnecter');
-            Route::post('/{client}/relancer', [ClientController::class, 'relancerViaWhatsApp'])->name('relancer');
-            Route::patch('/{client}/marquer-paye', [ClientController::class, 'marquerCommePaye'])->name('marquer-paye');
-            Route::post('/{client}/reactiver', [ClientController::class, 'reactiver'])->name('reactiver');
-
-            Route::post('/export', [ClientController::class, 'export'])->name('export');
-            Route::get('/export/pdf', [ClientController::class, 'exportPdf'])->name('exportPdf');
-
-            Route::get('/ajax/list', [ClientController::class, 'ajaxList'])->name('ajaxList');
-            Route::get('/envoyer-notifications', [ClientController::class, 'envoyerNotifications'])->name('envoyerNotifications');
-            Route::get('/notifier', [ClientController::class, 'envoyerNotifications'])->name('notifier');
-        });
-
-        // --- Lecture individuelle (tous) doit être à la fin ---
-        Route::middleware(['role:commercial,admin'])->get('/{client}', [ClientController::class, 'show'])->name('show');
     });
 
-    // Profil utilisateur
+    // ──────────────────────────────────────────────
+    //  Clients — Admin uniquement (écriture)
+    // ──────────────────────────────────────────────
+    Route::middleware(['role:admin'])->prefix('clients')->name('clients.')->group(function () {
+        // CRUD
+        Route::get('/{client}/edit', [ClientCrudController::class, 'edit'])->name('edit');
+        Route::put('/{client}', [ClientCrudController::class, 'update'])->name('update');
+        Route::delete('/{client}', [ClientCrudController::class, 'destroy'])->name('destroy');
+
+        // Paiement
+        Route::patch('/{client}/marquer-paye', [ClientPaymentController::class, 'markAsPaid'])->name('marquer-paye');
+        Route::patch('/{client}/reconnecter', [ClientPaymentController::class, 'reconnect'])->name('reconnecter');
+        Route::post('/{client}/deconnecter', [ClientPaymentController::class, 'disconnect'])->name('deconnecter');
+
+        // Statut
+        Route::patch('/{client}/suspendre', [ClientStatusController::class, 'suspend'])->name('suspendre');
+        Route::patch('/{client}/reactiver', [ClientStatusController::class, 'reactivate'])->name('reactiver');
+
+        // Notifications
+        Route::post('/{client}/relancer', [ClientNotificationController::class, 'sendWhatsApp'])->name('relancer');
+        Route::get('/notifier', [ClientNotificationController::class, 'sendEmailNotifications'])->name('notifier');
+        Route::get('/envoyer-notifications', [ClientNotificationController::class, 'sendEmailNotifications'])->name('envoyerNotifications');
+        Route::post('/{client}/relancer-sms', [ClientNotificationController::class, 'sendSms'])->name('relancerSms');
+
+        // Export
+        Route::post('/export', [ClientExportController::class, 'exportPdf'])->name('export');
+        Route::get('/export/pdf', [ClientExportController::class, 'exportActivePdf'])->name('exportPdf');
+    });
+
+    // ──────────────────────────────────────────────
+    //  Profil utilisateur
+    // ──────────────────────────────────────────────
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Auth Laravel Breeze/Fortify
+// ── Auth Laravel Breeze ──
 require __DIR__.'/auth.php';

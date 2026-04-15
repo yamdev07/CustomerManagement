@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
-abstract class Controller
+use App\Http\Controllers\Controller;
+
+abstract class Controller extends \Illuminate\Routing\Controller
 {
     //
 }
